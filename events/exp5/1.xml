@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<DocuSignEnvelopeInformation xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xmlns="http://www.docusign.net/API/3.0">
+  <EnvelopeStatus>
+    <RecipientStatuses>
+      <RecipientStatus>
+        <Type>Signer</Type>
+        <Email>contributor@gmail.com</Email>
+        <UserName>J F Cote</UserName>
+        <RoutingOrder>1</RoutingOrder>
+        <Sent>2020-02-19T02:57:05.963</Sent>
+        <Delivered>2020-02-19T02:57:27.09</Delivered>
+        <Declined>2020-02-19T02:58:07.513</Declined>
+        <DeclineReason>my life my rules</DeclineReason>
+        <Status>Declined</Status>
+        <RecipientIPAddress>183.87.236.50</RecipientIPAddress>
+        <ClientUserId>1</ClientUserId>
+        <CustomFields />
+        <TabStatuses>
+          <TabStatus>
+            <TabType>SignHere</TabType>
+            <Status>Active</Status>
+            <XPosition>208</XPosition>
+            <YPosition>208</YPosition>
+            <TabLabel>signature</TabLabel>
+            <TabName>SignHere</TabName>
+            <TabValue />
+            <DocumentID>1</DocumentID>
+            <PageNumber>1</PageNumber>
+          </TabStatus>
+        </TabStatuses>
+        <AccountStatus>Active</AccountStatus>
+        <RecipientId>
+        4570734b-edf7-440a-8c20-3b094aa2c1a5</RecipientId>
+      </RecipientStatus>
+      <RecipientStatus>
+        <Type>Signer</Type>
+        <Email>clamanager@gmail.com</Email>
+        <UserName>Prasanna Mahajan</UserName>
+        <RoutingOrder>2</RoutingOrder>
+        <DeclineReason xsi:nil="true" />
+        <Status>Created</Status>
+        <RecipientIPAddress />
+        <ClientUserId>2</ClientUserId>
+        <CustomFields />
+        <TabStatuses>
+          <TabStatus>
+            <TabType>SignHere</TabType>
+            <Status>Active</Status>
+            <XPosition>416</XPosition>
+            <YPosition>208</YPosition>
+            <TabLabel>signature</TabLabel>
+            <TabName>SignHere</TabName>
+            <TabValue />
+            <DocumentID>1</DocumentID>
+            <PageNumber>1</PageNumber>
+          </TabStatus>
+        </TabStatuses>
+        <AccountStatus>Active</AccountStatus>
+        <RecipientId>
+        632f872d-ef9d-4d48-8bfd-81837c73d599</RecipientId>
+      </RecipientStatus>
+    </RecipientStatuses>
+    <TimeGenerated>2020-02-19T02:58:27.6771525</TimeGenerated>
+    <EnvelopeID>63b42b42-f6d9-49f7-b738-c13f956e5cd7</EnvelopeID>
+    <Subject>[Go eSignagure SDK] - Please sign this doc</Subject>
+    <UserName>Vasu Krishnappanaidu</UserName>
+    <Email>vnaidu@linuxfoundation.org</Email>
+    <Status>Declined</Status>
+    <Created>2020-02-19T02:57:05.307</Created>
+    <Sent>2020-02-19T02:57:05.993</Sent>
+    <Declined>2020-02-19T02:58:07.53</Declined>
+    <ACStatus>Original</ACStatus>
+    <ACStatusDate>2020-02-19T02:57:05.307</ACStatusDate>
+    <ACHolder>Vasu Krishnappanaidu</ACHolder>
+    <ACHolderEmail>vnaidu@linuxfoundation.org</ACHolderEmail>
+    <ACHolderLocation>DocuSign</ACHolderLocation>
+    <SigningLocation>Online</SigningLocation>
+    <SenderIPAddress>183.87.236.50</SenderIPAddress>
+    <EnvelopePDFHash />
+    <CustomFields />
+    <AutoNavigation>true</AutoNavigation>
+    <EnvelopeIdStamping>true</EnvelopeIdStamping>
+    <AuthoritativeCopy>false</AuthoritativeCopy>
+    <DocumentStatuses>
+      <DocumentStatus>
+        <ID>1</ID>
+        <Name>invite letter.pdf</Name>
+        <TemplateName />
+        <Sequence>1</Sequence>
+      </DocumentStatus>
+    </DocumentStatuses>
+  </EnvelopeStatus>
+</DocuSignEnvelopeInformation>
