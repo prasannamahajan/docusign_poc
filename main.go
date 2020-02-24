@@ -7,6 +7,7 @@ import (
 	"github.com/jfcote87/esign/v2/envelopes"
 	"github.com/jfcote87/esign/v2/model"
 	"github.com/sanity-io/litter"
+	"strconv"
 
 	//"github.com/sanity-io/litter"
 	"io/ioutil"
@@ -14,9 +15,158 @@ import (
 	"os"
 )
 
+type Field struct {
+	ID string
+	Name string
+	AnchorString string
+	FieldType string
+	IsOptional bool
+	IsEditable bool
+	Width        int32
+	Height       int32
+	OffsetX      int64
+	OffsetY int64
+}
+
+var CclaFields =[]*Field {
+	{
+		ID:           "sign",
+		Name:         "Please Sign",
+		AnchorString: "Please sign:",
+		FieldType:    "sign",
+		IsOptional:   false,
+		IsEditable:   false,
+		Width:        0,
+		Height:       0,
+		OffsetX:      100,
+		OffsetY:      -6,
+	},
+	{
+		ID:           "date",
+		Name:         "Date",
+		AnchorString: "Date:",
+		FieldType:    "date",
+		IsOptional:   false,
+		IsEditable:   false,
+		Width:        0,
+		Height:       0,
+		OffsetX:      40,
+		OffsetY:      -7,
+	},
+	{
+		ID:           "signatory_name",
+		Name:         "Signatory Name",
+		AnchorString: "Signatory Name:",
+		FieldType:    "text",
+		IsOptional:   false,
+		IsEditable:   false,
+		Width:        355,
+		Height:       20,
+		OffsetX:      120,
+		OffsetY:      -5,
+	},
+	{
+		ID:           "signatory_email",
+		Name:         "Signatory E-mail",
+		AnchorString: "Signatory E-mail:",
+		FieldType:    "text",
+		IsOptional:   false,
+		IsEditable:   false,
+		Width:        355,
+		Height:       20,
+		OffsetX:      120,
+		OffsetY:      -5,
+	},
+	{
+		ID:           "signatory_title",
+		Name:         "Signatory Title",
+		AnchorString: "Signatory Title:",
+		FieldType:    "text",
+		IsOptional:   true,
+		IsEditable:   true,
+		Width:        355,
+		Height:       20,
+		OffsetX:      120,
+		OffsetY:      -6,
+	},
+	{
+		ID:           "corporation_name",
+		Name:         "Corporation Name",
+		AnchorString: "Corporation Name:",
+		FieldType:    "text",
+		IsOptional:   false,
+		IsEditable:   false,
+		Width:        355,
+		Height:       20,
+		OffsetX:      130,
+		OffsetY:      -5,
+	},
+	{
+		ID:           "corporation_address1",
+		Name:         "Corporation Address1",
+		AnchorString: "Corporation Address:",
+		FieldType:    "text",
+		IsOptional:   false,
+		IsEditable:   true,
+		Width:        230,
+		Height:       20,
+		OffsetX:      135,
+		OffsetY:      -8,
+	},
+	{
+		ID:           "corporation_address2",
+		Name:         "Corporation Address2",
+		AnchorString: "Corporation Address:",
+		FieldType:    "text_unlocked",
+		IsOptional:   false,
+		IsEditable:   true,
+		Width:        350,
+		Height:       20,
+		OffsetX:      0,
+		OffsetY:      27,
+	},
+	{
+		ID:           "corporation_address3",
+		Name:         "Corporation Address3",
+		AnchorString: "Corporation Address:",
+		FieldType:    "text_unlocked",
+		IsOptional:   true,
+		IsEditable:   true,
+		Width:        350,
+		Height:       20,
+		OffsetX:      0,
+		OffsetY:      65,
+	},
+	{
+		ID:           "cla_manager_name",
+		Name:         "Initial CLA Manager Name",
+		AnchorString: "Initial CLA Manager Name:",
+		FieldType:    "text",
+		IsOptional:   false,
+		IsEditable:   false,
+		Width:        385,
+		Height:       20,
+		OffsetX:      190,
+		OffsetY:      -7,
+	},
+	{
+		ID:           "cla_manager_email",
+		Name:         "Initial CLA Manager Email",
+		AnchorString: "Initial CLA Manager E-Mail:",
+		FieldType:    "text",
+		IsOptional:   false,
+		IsEditable:   false,
+		Width:        385,
+		Height:       20,
+		OffsetX:      190,
+		OffsetY:      -7,
+	},
+}
+
+
 func createEnvelope(cred esign.Credential) (string){
 	sv := envelopes.New(cred)
-	f1, err := ioutil.ReadFile("letter.pdf")
+	f1, err := ioutil.ReadFile("ccla.pdf")
 	if err != nil {
 		log.Fatalf("file read error: %v", err)
 	}
@@ -87,22 +237,7 @@ func createEnvelope(cred esign.Credential) (string){
 					ClientUserID: "1",
 					RecipientID:       "1",
 					RoutingOrder:"1",
-					Tabs: &model.Tabs{
-						SignHereTabs: []model.SignHere{
-							{
-								TabBase: model.TabBase{
-									DocumentID:  "1",
-									RecipientID: "1",
-								},
-								TabPosition: model.TabPosition{
-									PageNumber: "1",
-									TabLabel:   "signature",
-									XPosition:  "100",
-									YPosition:  "100",
-								},
-							},
-						},
-					},
+					Tabs: getTabs(CclaFields),
 				},
 				{
 					Email:             "clamanager@gmail.com",
@@ -248,3 +383,85 @@ func createViewUrl(cfg esign.Credential, envelopeID string, signer model.Signer)
 	litter.Dump(viewUrl)
 }
 
+func getTabs(tabs []*Field) *model.Tabs {
+	pageNumber := 3
+	defaults := map[string]string{
+		"date" : "2/24/2020",
+		"signatory_name": "Prasanna Mahajan",
+		"signatory_email" : "prasannak@proximabiz.com",
+		"corporation_name" : "Fstack",
+		"cla_manager_name": "Prasanna Mahaja",
+		"cla_manager_email": "prasannak@proximabiz.com",
+
+	}
+	var result model.Tabs
+	for _,tab := range tabs {
+		tab.OffsetX = tab.OffsetX + 200
+		var tabValue model.TabValue
+		if v,ok := defaults[tab.ID]; ok {
+			tabValue = model.TabValue{Value:v}
+		}
+		var isOptional model.TabRequired
+		if tab.IsOptional {
+			isOptional = model.REQUIRED_FALSE
+		}
+		switch  tab.FieldType {
+		case "sign":
+			result.SignHereTabs = append(result.SignHereTabs, model.SignHere{
+				TabBase:           model.TabBase{
+					DocumentID: "1",
+					RecipientID: "1",
+				},
+				TabPosition:       model.TabPosition{
+					AnchorString: tab.AnchorString,
+					CustomTabID: tab.ID,
+					TabLabel: tab.ID,
+					XPosition:    strconv.FormatInt(tab.OffsetX,10),
+					YPosition:    strconv.FormatInt(tab.OffsetY, 10),
+					PageNumber: strconv.Itoa(pageNumber),
+				},
+				Name:              tab.Name,
+			})
+		case "text","text_unlocked","text_optional":
+			result.TextTabs = append(result.TextTabs, model.Text{
+				TabBase:           model.TabBase{
+					DocumentID: "1",
+					RecipientID: "1",
+				},
+				TabPosition:                  model.TabPosition{
+					AnchorString: tab.AnchorString,
+					CustomTabID: tab.ID,
+					TabLabel: tab.ID,
+					XPosition:    strconv.FormatInt(tab.OffsetX,10),
+					YPosition:    strconv.FormatInt(tab.OffsetY, 10),
+					PageNumber: strconv.Itoa(pageNumber),
+				},
+				TabValue:                     tabValue,
+				Height:                       tab.Height,
+				Width:                        tab.Width,
+				Locked:                       model.DSBool(!tab.IsEditable),
+				Required:                     isOptional,
+			})
+		case "date":
+			result.DateTabs = append(result.DateTabs, model.Date{
+				TabBase:           model.TabBase{
+					DocumentID: "1",
+					RecipientID: "1",
+				},
+				TabPosition:                  model.TabPosition{
+					AnchorString: tab.AnchorString,
+					CustomTabID: tab.ID,
+					TabLabel: tab.ID,
+					XPosition:    strconv.FormatInt(tab.OffsetX,10),
+					YPosition:    strconv.FormatInt(tab.OffsetY, 10),
+					PageNumber: strconv.Itoa(pageNumber),
+				},
+				Width:                        tab.Width,
+				Locked:                       model.DSBool(!tab.IsEditable),
+				Required:                     isOptional,
+				TabValue: tabValue,
+			})
+		}
+	}
+	return &result
+}
