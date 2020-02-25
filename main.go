@@ -2,12 +2,18 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/jfcote87/esign"
 	"github.com/jfcote87/esign/legacy"
 	"github.com/jfcote87/esign/v2/envelopes"
 	"github.com/jfcote87/esign/v2/model"
 	"github.com/sanity-io/litter"
+	"github.com/gorilla/mux"
+	"html/template"
+	"io"
+	"net/http"
 	"strconv"
+	"time"
 
 	//"github.com/sanity-io/litter"
 	"io/ioutil"
@@ -254,10 +260,11 @@ func createEnvelope(cred esign.Credential) (string){
 									RecipientID: "2",
 								},
 								TabPosition: model.TabPosition{
-									PageNumber: "1",
+									AnchorString: "Please sign:",
 									TabLabel:   "signature",
-									XPosition:  "200",
-									YPosition:  "100",
+									AnchorXOffset:  "200",
+									AnchorYOffset:  "-6",
+									AnchorIgnoreIfNotPresent: false,
 								},
 							},
 						},
@@ -302,7 +309,7 @@ func getRecipients(cred esign.Credential, envelopeID string) *model.Recipients{
 	if err != nil {
 		log.Fatal(err)
 	}
-	litter.Dump(rec)
+	//litter.Dump(rec)
 	return rec
 
 }
@@ -329,7 +336,180 @@ func getEnvelopeID(args []string) string {
 	return args[1]
 }
 
+func CreateEnvelope(w http.ResponseWriter, r *http.Request) {
+	cfg := getCred()
+	envelopeID := createEnvelope(cfg)
+	rec := getRecipients(cfg, envelopeID)
+	signer := rec.Signers[0]
+	contributorReturnUrl := "http://localhost:8000/contributor_signed/" + envelopeID
+	url := createViewUrl(cfg, envelopeID, signer,contributorReturnUrl)
+	createdEnvelopeTemplate := `
+	<html>
+	<head>
+	</head>
+	<body>
+	<h3>
+		Hey {{.Name}}
+	</h3>
+	<h3>
+		To contribute to project 
+		 <a href="{{.URL}}">Sign</a> the contributor license agreement
+	</h3>
+	</body>
+	</html>`
+	t, err := template.New("test").Parse(createdEnvelopeTemplate)
+	if err != nil {
+		log.Fatal(err)
+	}
+	t.Execute(w, struct {
+		Name string
+		URL string
+	}{
+		Name : signer.Name,
+		URL : url,
+	})
+}
+
+func VoidEnvelope(w http.ResponseWriter, r *http.Request) {
+	args := mux.Vars(r)
+	envelopeID := args["envelopeID"]
+	cfg := getCred()
+	voidEnvelope(cfg, envelopeID)
+}
+
+func GenerateURLs(w http.ResponseWriter, r *http.Request) {
+	args := mux.Vars(r)
+	envelopeID := args["envelopeID"]
+	contributorReturnUrl := "localhost:8000/contributor_signed/" + envelopeID
+	clamanagerReturnUrl := "localhost:8000/cla_manager_signed/" + envelopeID
+	cfg := getCred()
+	rec := getRecipients(cfg, envelopeID)
+	signer := rec.Signers[0]
+	contribUrl := createViewUrl(cfg, envelopeID, signer,contributorReturnUrl)
+	signer = rec.Signers[1]
+	claManagerUrl := createViewUrl(cfg, envelopeID, signer,clamanagerReturnUrl)
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "contributor signing url is %s\ncla manager signing url is %s\n", contribUrl, claManagerUrl)
+}
+
+func ContributorSigned(w http.ResponseWriter, r *http.Request) {
+	args := mux.Vars(r)
+	envelopeID := args["envelopeID"]
+	event := r.FormValue("event")
+	if event == "" {
+		fmt.Fprintf(w, "got empty event. should not happen\n")
+		return
+	}
+	if event != "signing_complete" {
+		fmt.Fprintf(w, "received event : %s\n", event)
+	}
+	log.Printf("got response %s for envelopeID %s\n", event,args["envelopeID"])
+	cfg := getCred()
+	rec := getRecipients(cfg, envelopeID)
+	signer := rec.Signers[1]
+	clamanagerReturnUrl := "http://localhost:8000/cla_manager_signed/" + envelopeID
+	claManagerUrl := createViewUrl(cfg, envelopeID, signer,clamanagerReturnUrl)
+	contributorSignedTemplate := `
+	<html>
+	<head>
+	</head>
+	<body>
+	<h3>
+		Thank you for your submission. It has been sent to the {{.Name}} for countersignature. Once they have signed, you will be able to whitelist contributors to the project.
+	</h3>
+	<h3>
+		cla manager signing url is <a href="{{.URL}}">Sign</a>
+	</h3>
+	</body>
+	</html>`
+	t, err := template.New("test").Parse(contributorSignedTemplate)
+	if err != nil {
+		log.Fatal(err)
+	}
+	t.Execute(w, struct {
+		Name string
+		URL string
+	}{
+		Name : signer.Name,
+		URL : claManagerUrl,
+	})
+}
+
+func ClaManagerSigned(w http.ResponseWriter, r *http.Request) {
+	args := mux.Vars(r)
+	event := r.FormValue("event")
+	if event == "" {
+		fmt.Fprintf(w, "got empty event. should not happen\n")
+		return
+	}
+	if event != "signing_complete" {
+		fmt.Fprintf(w, "received event : %s\n", event)
+		return
+	}
+	log.Printf("recieved event %s", event)
+	claManagerSignedTemplate := `
+	<html>
+	<head>
+	</head>
+	<body>
+	<h3>
+		Thank you for your submission. Signing process is complete.
+	</h3>
+	<h3>
+		<a href="{{.URL}}">View signed document</a>
+	</h3>
+	</body>
+	</html>`
+	t, err := template.New("test").Parse(claManagerSignedTemplate)
+	if err != nil {
+		log.Fatal(err)
+	}
+	link := "http://localhost:8000/view/"+args["envelopeID"]
+	t.Execute(w, struct {
+		URL string
+	} {
+		URL : link,
+	})
+}
+
+func ViewDocument(w http.ResponseWriter, r *http.Request) {
+	args := mux.Vars(r)
+	download, err :=	envelopes.New(getCred()).DocumentsGet("1",args["envelopeID"]).Do(context.TODO())
+	if err != nil {
+		log.Fatal(err)
+	}
+	w.Header().Set("Content-Type", download.ContentType)
+	io.Copy(w, download.ReadCloser)
+}
+
+func test(w http.ResponseWriter, r *http.Request) {
+	download, err :=	envelopes.New(getCred()).DocumentsGet("1","6aed5d3b-0818-4711-9a37-9251aaf83f99").Do(context.TODO())
+	if err != nil {
+		log.Fatal(err)
+	}
+	w.Header().Set("Content-Type", download.ContentType)
+	io.Copy(w, download.ReadCloser)
+}
+
 func main() {
+	router := mux.NewRouter()
+	router.HandleFunc("/create",CreateEnvelope)
+	router.HandleFunc("/test",test)
+	router.HandleFunc("/view/{envelopeID}",ViewDocument)
+	router.HandleFunc("/void/{envelopeID}", VoidEnvelope)
+	router.HandleFunc("/genurl/{envelopeID}", GenerateURLs)
+	router.HandleFunc("/contributor_signed/{envelopeID}", ContributorSigned)
+	router.HandleFunc("/cla_manager_signed/{envelopeID}", ClaManagerSigned)
+	srv := &http.Server{
+		Handler: router,
+		Addr:    "127.0.0.1:8000",
+		// Good practice: enforce timeouts for servers you create!
+		WriteTimeout: 15 * time.Second,
+		ReadTimeout:  15 * time.Second,
+	}
+	log.Println("stating server on ",srv.Addr)
+	log.Fatal(srv.ListenAndServe())
+	/*
 	args := os.Args[1:]
 	var envelopeID string
 	if len(args) == 0 {
@@ -358,9 +538,10 @@ func main() {
 	default:
 		log.Fatal(helptext)
 	}
+	 */
 }
 
-func createViewUrl(cfg esign.Credential, envelopeID string, signer model.Signer) {
+func createViewUrl(cfg esign.Credential, envelopeID string, signer model.Signer,returnURL string) string {
 	viewUrl, err := envelopes.New(cfg).ViewsCreateRecipient(envelopeID,&model.RecipientViewRequest{
 		AssertionID:               "",
 		AuthenticationInstant:     "",
@@ -370,7 +551,7 @@ func createViewUrl(cfg esign.Credential, envelopeID string, signer model.Signer)
 		PingFrequency:             "",
 		PingURL:                   "",
 		RecipientID:               "",
-		ReturnURL:                 "https://localhost:3000/",
+		ReturnURL:                 returnURL,
 		SecurityDomain:            "",
 		UserID:                    signer.UserID,
 		UserName:                  signer.Name,
@@ -378,32 +559,30 @@ func createViewUrl(cfg esign.Credential, envelopeID string, signer model.Signer)
 		XFrameOptionsAllowFromURL: "",
 	}).Do(context.TODO())
 	if err != nil {
-		log.Fatal(err)
+		return err.Error()
 	}
-	litter.Dump(viewUrl)
+	return viewUrl.URL
 }
 
 func getTabs(tabs []*Field) *model.Tabs {
-	pageNumber := 3
 	defaults := map[string]string{
 		"date" : "2/24/2020",
-		"signatory_name": "Prasanna Mahajan",
-		"signatory_email" : "prasannak@proximabiz.com",
-		"corporation_name" : "Fstack",
-		"cla_manager_name": "Prasanna Mahaja",
+		"signatory_name": "J F Kote",
+		"signatory_email" : "jfkote@google.com",
+		"corporation_name" : "Google",
+		"cla_manager_name": "Prasanna Mahajan",
 		"cla_manager_email": "prasannak@proximabiz.com",
 
 	}
 	var result model.Tabs
 	for _,tab := range tabs {
-		tab.OffsetX = tab.OffsetX + 200
 		var tabValue model.TabValue
 		if v,ok := defaults[tab.ID]; ok {
 			tabValue = model.TabValue{Value:v}
 		}
-		var isOptional model.TabRequired
+		var required model.TabRequired
 		if tab.IsOptional {
-			isOptional = model.REQUIRED_FALSE
+			required = model.REQUIRED_FALSE
 		}
 		switch  tab.FieldType {
 		case "sign":
@@ -414,34 +593,41 @@ func getTabs(tabs []*Field) *model.Tabs {
 				},
 				TabPosition:       model.TabPosition{
 					AnchorString: tab.AnchorString,
+					AnchorXOffset: strconv.FormatInt(tab.OffsetX,10),
+					AnchorYOffset:    strconv.FormatInt(tab.OffsetY, 10),
+					AnchorIgnoreIfNotPresent:false,
 					CustomTabID: tab.ID,
 					TabLabel: tab.ID,
-					XPosition:    strconv.FormatInt(tab.OffsetX,10),
-					YPosition:    strconv.FormatInt(tab.OffsetY, 10),
-					PageNumber: strconv.Itoa(pageNumber),
 				},
 				Name:              tab.Name,
 			})
 		case "text","text_unlocked","text_optional":
-			result.TextTabs = append(result.TextTabs, model.Text{
-				TabBase:           model.TabBase{
-					DocumentID: "1",
+			textTab := model.Text{
+				TabBase: model.TabBase{
+					DocumentID:  "1",
 					RecipientID: "1",
 				},
-				TabPosition:                  model.TabPosition{
-					AnchorString: tab.AnchorString,
-					CustomTabID: tab.ID,
-					TabLabel: tab.ID,
-					XPosition:    strconv.FormatInt(tab.OffsetX,10),
-					YPosition:    strconv.FormatInt(tab.OffsetY, 10),
-					PageNumber: strconv.Itoa(pageNumber),
+				TabPosition: model.TabPosition{
+					AnchorString:             tab.AnchorString,
+					CustomTabID:              tab.ID,
+					TabLabel:                 tab.ID,
+					AnchorXOffset:            strconv.FormatInt(tab.OffsetX, 10),
+					AnchorYOffset:            strconv.FormatInt(tab.OffsetY, 10),
+					AnchorIgnoreIfNotPresent: false,
 				},
-				TabValue:                     tabValue,
-				Height:                       tab.Height,
-				Width:                        tab.Width,
-				Locked:                       model.DSBool(!tab.IsEditable),
-				Required:                     isOptional,
-			})
+				TabValue: tabValue,
+				Height:   tab.Height,
+				Width:    tab.Width,
+				Locked:   model.DSBool(!tab.IsEditable),
+				Required: required,
+			}
+			if tab.FieldType == "text_unlocked" {
+				textTab.Locked = false
+			}
+			if tab.FieldType == "text_optional" {
+				textTab.Required = model.REQUIRED_FALSE
+			}
+			result.TextTabs = append(result.TextTabs, textTab)
 		case "date":
 			result.DateTabs = append(result.DateTabs, model.Date{
 				TabBase:           model.TabBase{
@@ -452,13 +638,13 @@ func getTabs(tabs []*Field) *model.Tabs {
 					AnchorString: tab.AnchorString,
 					CustomTabID: tab.ID,
 					TabLabel: tab.ID,
-					XPosition:    strconv.FormatInt(tab.OffsetX,10),
-					YPosition:    strconv.FormatInt(tab.OffsetY, 10),
-					PageNumber: strconv.Itoa(pageNumber),
+					AnchorXOffset: strconv.FormatInt(tab.OffsetX,10),
+					AnchorYOffset:    strconv.FormatInt(tab.OffsetY, 10),
+					AnchorIgnoreIfNotPresent:false,
 				},
 				Width:                        tab.Width,
 				Locked:                       model.DSBool(!tab.IsEditable),
-				Required:                     isOptional,
+				Required:                     required,
 				TabValue: tabValue,
 			})
 		}
